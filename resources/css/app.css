@@ -1410,6 +1410,32 @@ textarea.form-control {
     margin-bottom: 24px;
 }
 
+/* ── KPI Cards ────────────────────────────────────────────── */
+.kpi-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    opacity: 0.8;
+}
+
+.kpi-value {
+    font-family: var(--mono);
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--text-hi);
+    line-height: 1;
+    margin-bottom: 6px;
+    letter-spacing: -0.02em;
+}
+
+.kpi-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
 /* ── Footer ───────────────────────────────────────────────── */
 .footer {
     background: var(--surface);

@@ -45,6 +45,12 @@
                         </li>
                         @if(auth()->user()->isAdmin())
                             <li>
+                                <a href="{{ route('dashboard.index') }}"
+                                    class="nav-link {{ request()->routeIs('dashboard.*') ? 'active' : '' }}">
+                                    Dashboard
+                                </a>
+                            </li>
+                            <li>
                                 <a href="{{ route('staff.index') }}"
                                     class="nav-link {{ request()->routeIs('staff.*') ? 'active' : '' }}">
                                     Staff
@@ -101,6 +107,10 @@
                                     </a>
 
                                     @if(auth()->user()->isAdmin())
+                                        <a href="{{ route('dashboard.index') }}" class="dropdown-item">
+                                            <span class="dropdown-item-icon">📊</span>
+                                            Analytics Dashboard
+                                        </a>
                                         <a href="{{ route('staff.index') }}" class="dropdown-item">
                                             <span class="dropdown-item-icon">👥</span>
                                             Manage Staff
@@ -261,6 +271,7 @@
                     <a href="{{ route('inventory.create') }}" class="footer-link">Add Item</a>
                     <a href="{{ route('inventory.low-stock') }}" class="footer-link">Low Stock</a>
                     @if(auth()->user()->isAdmin())
+                        <a href="{{ route('dashboard.index') }}" class="footer-link">Dashboard</a>
                         <a href="{{ route('staff.index') }}" class="footer-link">Staff</a>
                     @endif
                     <a href="{{ route('profile.edit') }}" class="footer-link">Account</a>
