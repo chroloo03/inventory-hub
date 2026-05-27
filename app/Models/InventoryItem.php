@@ -17,13 +17,15 @@ class InventoryItem extends Model
         'status',
         'quantity',
         'low_stock_threshold',
+        'low_stock_notified_at',
         'attributes',
     ];
 
     protected $casts = [
-        'attributes'          => 'array',
-        'quantity'            => 'integer',
-        'low_stock_threshold' => 'integer',
+        'attributes'            => 'array',
+        'quantity'              => 'integer',
+        'low_stock_threshold'   => 'integer',
+        'low_stock_notified_at' => 'datetime',
     ];
 
     // ── Relationships ──────────────────────────────────────────
@@ -40,6 +42,19 @@ class InventoryItem extends Model
         return $query->whereColumn('quantity', '<=', 'low_stock_threshold');
     }
 
+    /**
+     * Items that are low on stock AND haven't been notified yet.
+     * Once notified, low_stock_notified_at is set.
+     * It's reset to NULL when stock is restored above threshold,
+     * so the next drop triggers a fresh alert.
+     */
+    public function scopeNeedsLowStockAlert(Builder $query): Builder
+    {
+        return $query
+            ->whereColumn('quantity', '<=', 'low_stock_threshold')
+            ->whereNull('low_stock_notified_at');
+    }
+
     // ── Helpers ───────────────────────────────────────────────
 
     public function isLowStock(): bool
@@ -54,9 +69,6 @@ class InventoryItem extends Model
 
     /**
      * Apply a stock transaction and update the cached quantity column.
-     *
-     * This is the single authoritative method for changing stock levels.
-     * Nothing else should write to the quantity column directly after item creation.
      *
      * @throws \InvalidArgumentException if a stock-out would make quantity negative
      */
@@ -89,8 +101,13 @@ class InventoryItem extends Model
             'quantity_after'  => $after,
         ]);
 
-        // Update the denormalized quantity cache
         $this->update(['quantity' => $after]);
+
+        // If restocked above threshold, reset notification flag
+        // so the next drop triggers a fresh alert
+        if ($type === 'in' && $after > $this->low_stock_threshold) {
+            $this->update(['low_stock_notified_at' => null]);
+        }
 
         return $transaction;
     }

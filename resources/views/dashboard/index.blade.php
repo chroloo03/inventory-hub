@@ -9,8 +9,19 @@
             </div>
         </div>
 
-        {{-- Export buttons --}}
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            {{-- Manual low stock alert trigger --}}
+            @if($lowStockCount > 0)
+                <form method="POST" action="{{ route('alerts.low-stock') }}">
+                    @csrf
+                    <button type="submit" class="btn btn-danger"
+                        title="Send low stock alert email to all admins now"
+                        onclick="return confirm('Send low stock alert email to all admin accounts?')">
+                        🔔 Send Alert ({{ $lowStockCount }})
+                    </button>
+                </form>
+            @endif
+
             <a href="{{ route('dashboard.export', request()->query()) }}"
                class="btn btn-secondary" title="Export transactions for selected period">
                 ↓ Transactions (.xlsx)
@@ -26,7 +37,6 @@
     <form method="GET" action="{{ route('dashboard.index') }}" id="filter-form">
         <div class="toolbar" style="margin-bottom:28px;">
             <div class="toolbar-left" style="flex-wrap:wrap; gap:6px;">
-
                 @foreach([
                     'today' => 'Today',
                     '7d'    => 'Last 7 Days',
@@ -40,10 +50,8 @@
                         {{ $label }}
                     </button>
                 @endforeach
-
             </div>
 
-            {{-- Custom date inputs --}}
             <div class="toolbar-right" id="custom-range"
                  style="{{ $preset === 'custom' ? 'display:flex' : 'display:none' }}; gap:8px; align-items:center;">
                 <input type="date" name="from" class="form-control" style="width:150px; padding:7px 10px;"
@@ -186,13 +194,18 @@
                             {{ $item->category }}
                         </div>
                     </div>
-                    <div style="text-align:right;">
+                    <div style="text-align:right; display:flex; flex-direction:column; align-items:flex-end; gap:3px;">
                         <div style="font-family:var(--mono); font-size:14px; font-weight:800; color:var(--red);">
                             {{ $item->quantity }}
                         </div>
                         <div style="font-family:var(--mono); font-size:10px; color:var(--text-dim);">
                             threshold: {{ $item->low_stock_threshold }}
                         </div>
+                        @if($item->low_stock_notified_at)
+                            <div style="font-family:var(--mono); font-size:9px; color:var(--text-muted);">
+                                notified {{ $item->low_stock_notified_at->diffForHumans() }}
+                            </div>
+                        @endif
                     </div>
                 </div>
                 @endforeach
@@ -280,9 +293,7 @@
 </x-layout>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-
 <script>
-    // ── Show/hide custom date inputs ──────────────────────────
     document.querySelectorAll('button[name="range"]').forEach(btn => {
         btn.addEventListener('click', () => {
             const customRange = document.getElementById('custom-range');
@@ -290,47 +301,30 @@
         });
     });
 
-    // ── Shared chart config ───────────────────────────────────
-    const style    = getComputedStyle(document.documentElement);
-    const textDim  = style.getPropertyValue('--text-dim').trim()  || '#6e7681';
-    const border   = style.getPropertyValue('--border').trim()    || '#21262d';
-    const accent   = style.getPropertyValue('--accent').trim()    || '#58a6ff';
-    const green    = style.getPropertyValue('--green').trim()     || '#3fb950';
-    const red      = style.getPropertyValue('--red').trim()       || '#f85149';
-    const amber    = style.getPropertyValue('--amber').trim()     || '#d29922';
+    const style   = getComputedStyle(document.documentElement);
+    const textDim = style.getPropertyValue('--text-dim').trim()  || '#6e7681';
+    const border  = style.getPropertyValue('--border').trim()    || '#21262d';
+    const accent  = style.getPropertyValue('--accent').trim()    || '#58a6ff';
+    const green   = style.getPropertyValue('--green').trim()     || '#3fb950';
+    const red     = style.getPropertyValue('--red').trim()       || '#f85149';
+    const amber   = style.getPropertyValue('--amber').trim()     || '#d29922';
 
     Chart.defaults.color       = textDim;
     Chart.defaults.borderColor = border;
     Chart.defaults.font.family = "'IBM Plex Mono', monospace";
     Chart.defaults.font.size   = 11;
 
-    // ── Daily Movement Chart ──────────────────────────────────
     new Chart(document.getElementById('movementChart'), {
         type: 'bar',
         data: {
             labels: @json($chartLabels),
             datasets: [
-                {
-                    label: 'Stock In',
-                    data: @json($chartIn),
-                    backgroundColor: 'rgba(63, 185, 80, 0.7)',
-                    borderColor: green,
-                    borderWidth: 1,
-                    borderRadius: 3,
-                },
-                {
-                    label: 'Stock Out',
-                    data: @json($chartOut),
-                    backgroundColor: 'rgba(248, 81, 73, 0.7)',
-                    borderColor: red,
-                    borderWidth: 1,
-                    borderRadius: 3,
-                },
+                { label: 'Stock In',  data: @json($chartIn),  backgroundColor: 'rgba(63,185,80,0.7)',  borderColor: green, borderWidth: 1, borderRadius: 3 },
+                { label: 'Stock Out', data: @json($chartOut), backgroundColor: 'rgba(248,81,73,0.7)',  borderColor: red,   borderWidth: 1, borderRadius: 3 },
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
             plugins: { legend: { position: 'top', labels: { boxWidth: 12, padding: 16 } } },
             scales: {
@@ -340,10 +334,8 @@
         }
     });
 
-    // ── Status Doughnut ───────────────────────────────────────
     const statusData   = @json($statusStats);
     const statusLabels = Object.keys(statusData).map(s => s.replace('_', ' ').toUpperCase());
-    const statusValues = Object.values(statusData);
     const statusColors = statusLabels.map(l =>
         l.includes('AVAILABLE')   ? 'rgba(63,185,80,0.8)'  :
         l.includes('OUT')         ? 'rgba(210,153,34,0.8)' :
@@ -354,53 +346,28 @@
         type: 'doughnut',
         data: {
             labels: statusLabels,
-            datasets: [{
-                data: statusValues,
-                backgroundColor: statusColors,
-                borderColor: style.getPropertyValue('--surface').trim(),
-                borderWidth: 3,
-                hoverOffset: 6,
-            }]
+            datasets: [{ data: Object.values(statusData), backgroundColor: statusColors,
+                borderColor: style.getPropertyValue('--surface').trim(), borderWidth: 3, hoverOffset: 6 }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             plugins: { legend: { position: 'bottom', labels: { padding: 16, boxWidth: 12 } } },
             cutout: '65%',
         }
     });
 
-    // ── Category Bar Chart ────────────────────────────────────
     const catData = @json($categoryStats);
-
     new Chart(document.getElementById('categoryChart'), {
         type: 'bar',
         data: {
             labels: catData.map(c => c.category.toUpperCase()),
             datasets: [
-                {
-                    label: 'Item Count',
-                    data: catData.map(c => c.item_count),
-                    backgroundColor: 'rgba(88,166,255,0.7)',
-                    borderColor: accent,
-                    borderWidth: 1,
-                    borderRadius: 3,
-                    yAxisID: 'y',
-                },
-                {
-                    label: 'Total Qty',
-                    data: catData.map(c => c.total_qty),
-                    backgroundColor: 'rgba(210,153,34,0.6)',
-                    borderColor: amber,
-                    borderWidth: 1,
-                    borderRadius: 3,
-                    yAxisID: 'y1',
-                },
+                { label: 'Item Count', data: catData.map(c => c.item_count), backgroundColor: 'rgba(88,166,255,0.7)',  borderColor: accent, borderWidth: 1, borderRadius: 3, yAxisID: 'y'  },
+                { label: 'Total Qty',  data: catData.map(c => c.total_qty),  backgroundColor: 'rgba(210,153,34,0.6)', borderColor: amber,  borderWidth: 1, borderRadius: 3, yAxisID: 'y1' },
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
             plugins: { legend: { position: 'top', labels: { boxWidth: 12, padding: 16 } } },
             scales: {

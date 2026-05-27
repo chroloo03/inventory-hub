@@ -8,6 +8,7 @@ use App\Http\Controllers\Main\InventoryItemController;
 use App\Http\Controllers\Main\LowStockController;
 use App\Http\Controllers\Main\TransactionController;
 use App\Http\Controllers\Main\DashboardController;
+use App\Http\Controllers\Main\AlertController;
 
 // ── Guest Routes ───────────────────────────────────────────
 Route::middleware('guest')->group(function () {
@@ -45,9 +46,13 @@ Route::middleware('auth')->group(function () {
     Route::middleware('admin')->group(function () {
         Route::resource('staff', StaffController::class)->except(['show']);
 
+        // Dashboard
         Route::get('dashboard',                 [DashboardController::class, 'index'])->name('dashboard.index');
         Route::get('dashboard/export',          [DashboardController::class, 'export'])->name('dashboard.export');
         Route::get('dashboard/export/snapshot', [DashboardController::class, 'exportSnapshot'])->name('dashboard.export.snapshot');
+
+        // Alerts
+        Route::post('alerts/low-stock', [AlertController::class, 'sendLowStockAlert'])->name('alerts.low-stock');
     });
 
 });
